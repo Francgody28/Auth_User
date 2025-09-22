@@ -37,7 +37,7 @@ def password_policy(value):
 
 class RegisterSerializer(serializers.ModelSerializer):
     # attach validator to guarantee field-level validation always runs
-    password = serializers.CharField(write_only=True, required=True, validators=[password_policy], min_length=8)
+    password = serializers.CharField(write_only=True, required=True, validators=[password_policy], min_length=8, max_length=128)
     confirm_password = serializers.CharField(write_only=True, required=True)
     department = serializers.ChoiceField(choices=DEPARTMENT_CHOICES, required=True)
     position = serializers.ChoiceField(choices=POSITION_CHOICES, required=True)
@@ -61,8 +61,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_phone_number(self, value):
-        if not re.fullmatch(r'^\+?\d{7,15}$', value):
-            raise serializers.ValidationError("Enter a valid phone number (7-15 digits, optional leading +).")
+        # Trim whitespace and enforce exactly 10 digits, no letters or symbols
+        value = value.strip()
+        if not re.fullmatch(r'^\d{10}$', value):
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
         return value
 
     def validate(self, attrs):
@@ -72,9 +74,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         if pw != confirm:
             raise serializers.ValidationError({"password": ["Passwords do not match."]})
 
-        # defensive: re-apply policy so even if field-level was bypassed it's enforced
+        # defensive: re-apply policy so even if field-level was bypassed it's enforced and mapped to the password field
         if pw:
-            password_policy(pw)
+            try:
+                password_policy(pw)
+            except serializers.ValidationError as e:
+                raise serializers.ValidationError({"password": e.detail})
 
         # department/position relationship validation
         dept = attrs.get('department')
