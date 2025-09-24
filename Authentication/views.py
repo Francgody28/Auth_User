@@ -10,31 +10,25 @@ import os
 
 signer = TimestampSigner()
 
-# Dashboard mappings pointing to System B (localhost:2809)
+# Dashboard mappings pointing to System A (localhost:5173) - for non-PSMS users
 POSITION_TO_DASHBOARD = {
-    # Planning & Administration
-    'planning_officer': 'http://localhost:2809/planning-dashboard',
-    'statistic_officer': 'http://localhost:2809/statistics-dashboard',
-    'head_division_planning': 'http://localhost:2809/head-of-division-dashboard',
-    'head_division_administration': 'http://localhost:2809/administration/division-dashboard',
-    'head_department_planning': 'http://localhost:2809/head-of-department-dashboard',
     # Laboratory
-    'register': 'http://localhost:2809/laboratory/registry-dashboard',
-    'laboratory_technician': 'http://localhost:2809/laboratory/technician-dashboard',
-    'head_division_laboratory': 'http://localhost:2809/laboratory/division-dashboard',
-    'head_department_laboratory': 'http://localhost:2809/laboratory/department-dashboard',
+    'register': 'http://localhost:5173/laboratory/registry-dashboard',
+    'laboratory_technician': 'http://localhost:5173/laboratory/technician-dashboard',
+    'head_division_laboratory': 'http://localhost:5173/laboratory/division-dashboard',
+    'head_department_laboratory': 'http://localhost:5173/laboratory/department-dashboard',
     # Research
-    'researcher': 'http://localhost:2809/research/researcher-dashboard',
-    'assistant_researcher': 'http://localhost:2809/research/assistant-dashboard',
-    'head_division_research': 'http://localhost:2809/research/division-dashboard',
-    'head_department_research': 'http://localhost:2809/research/department-dashboard',
-    # Directorate
-    'director_general': 'http://localhost:2809/directorate/general-dashboard',
+    'researcher': 'http://localhost:5173/research/researcher-dashboard',
+    'assistant_researcher': 'http://localhost:5173/research/assistant-dashboard',
+    'head_division_research': 'http://localhost:5173/research/division-dashboard',
+    'head_department_research': 'http://localhost:5173/research/department-dashboard',
+    # Administration (non-planning)
+    'head_division_administration': 'http://localhost:5173/administration/division-dashboard',
 }
 
 ROLE_TO_DASHBOARD = {
     'admin': 'http://localhost:2809/admin-dashboard',
-    'manager': 'http://localhost:2809/manager-dashboard',
+    'manager': 'http://localhost:2809manager-dashboard',
     'staff': 'http://localhost:2809/staff-dashboard',
     'guest': 'http://localhost:2809/guest-dashboard',
 }
@@ -79,7 +73,7 @@ class LoginAPIView(APIView):
     """
     POST /api/login/
     Body: { "username": "...", "password": "..." }
-    Returns: { "username": "...", "redirect": "http://localhost:2809/dashboard", "sso_token": "<signed-token>", ... }
+    Returns: Direct redirect URL with SSO token
     """
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -102,23 +96,38 @@ class LoginAPIView(APIView):
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
 
-        # Generate SSO token for System B (expires in 5 minutes)
+        # Generate SSO token for PSMS (expires in 5 minutes)
         sso_payload = f"{user.id}:{user.username}:{user.email}:{user.role}:{user.department}:{user.position}"
         sso_token = signer.sign(sso_payload)
 
-        # Get redirect URL for System B
-        redirect = POSITION_TO_DASHBOARD.get(user.position) or ROLE_TO_DASHBOARD.get(user.role, 'http://localhost:2809/guest-dashboard')
+        # PSMS dashboard mappings with SSO token - PORT 3000
+        PSMS_DASHBOARDS = {
+    'planning_officer': f'http://localhost:2809/planning-dashboard?sso_token={sso_token}',
+    'statistic_officer': f'http://localhost:2809/statistics-dashboard?sso_token={sso_token}',
+    'head_division_planning': f'http://localhost:2809/head-of-division-dashboard?sso_token={sso_token}',
+    'head_department_planning': f'http://localhost:2809/head-of-department-dashboard?sso_token={sso_token}',
+    'director_general': f'http://localhost:2809/director-general-dashboard?sso_token={sso_token}',
+        }
+
+        # Check if user should go to PSMS with SSO
+        if user.position in PSMS_DASHBOARDS:
+            redirect_url = PSMS_DASHBOARDS[user.position]
+            redirect_to_psms = True
+        else:
+            # Other positions go to their respective dashboards in System A
+            redirect_url = POSITION_TO_DASHBOARD.get(user.position) or ROLE_TO_DASHBOARD.get(user.role, 'http://localhost:5173/guest-dashboard')
+            redirect_to_psms = False
 
         return Response({
             "username": user.username,
             "token": access_token,
             "refresh": refresh_token,
             "sso_token": sso_token,
-            "redirect": redirect,
+            "redirect": redirect_url,
             "role": user.role,
             "department": user.department,
             "position": user.position,
-            "redirect_to_system_b": True
+            "redirect_to_psms": redirect_to_psms
         })
 
 class ExternalAuthAPIView(APIView):
@@ -126,7 +135,7 @@ class ExternalAuthAPIView(APIView):
     POST /api/external/auth/
     Headers: X-API-KEY: <shared-key>
     Body: { "sso_token": "<signed-token>" }
-    For System B to validate SSO tokens
+    For PSMS to validate SSO tokens
     """
     def post(self, request):
         # Validate API key
