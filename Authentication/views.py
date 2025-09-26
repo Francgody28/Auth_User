@@ -120,14 +120,14 @@ class LoginAPIView(APIView):
 
         return Response({
             "username": user.username,
-            "token": access_token,
-            "refresh": refresh_token,
-            "sso_token": sso_token,
-            "redirect": redirect_url,
+            "token": access_token,           # JWT for System A
+            "refresh": refresh_token,        # JWT refresh for System A
+            "sso_token": sso_token,         # SSO token for System B
+            "redirect": redirect_url,        # Where to redirect user
             "role": user.role,
             "department": user.department,
             "position": user.position,
-            "redirect_to_psms": redirect_to_psms
+            "redirect_to_psms": redirect_to_psms  # Boolean flag
         })
 
 class ExternalAuthAPIView(APIView):

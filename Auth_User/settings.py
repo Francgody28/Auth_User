@@ -26,12 +26,17 @@ SECRET_KEY = 'django-insecure-(vz8w7_e^n0)b5i&%@@5$-fj!u5cflcbxmsi(az)%!i=5c!@)t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['192.168.1.164', 'localhost','127.0.0.1']
 
 # CORS settings for cross-system communication
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # System A Frontend
-    "http://localhost:2809",  # System B Frontend
+    "http://192.168.1.164:5173",  # System A Frontend (network IP)
+    "http://192.168.1.164:2809",  # System B Frontend (network IP)
+    "http://192.168.1.164:8000",  # System A Backend (network IP)
+    "http://localhost:5173",      # Keep localhost for development
+    "http://localhost:2809",      # Keep localhost for development
+    "http://localhost:8000",      # Keep localhost for development
+    "http://127.0.0.1:8000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -45,19 +50,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders',  # Add this for CORS
-    'rest_framework',
-    'rest_framework_simplejwt',  # Add JWT
-    'Authentication',
+    'corsheaders',  # Enables cross-origin requests for SSO
+    'rest_framework',  # API framework for SSO endpoints
+    'rest_framework_simplejwt',  # JWT token handling
+    'Authentication',  # Your custom SSO logic
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Add this first
+    'corsheaders.middleware.CorsMiddleware',  # First - handles CORS preflight
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # JWT auth
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -122,9 +127,9 @@ AUTHENTICATION_BACKENDS = (
 # JWT Configuration
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # JWT expires in 1 hour
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Refresh token expires in 1 day
+    'ROTATE_REFRESH_TOKENS': True,                   # New refresh token on each use
 }
 
 # Internationalization
