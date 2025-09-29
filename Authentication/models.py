@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password, check_password, identify_hasher
+from django.utils import timezone
 
 ROLE_CHOICES = (
 	('admin', 'Admin'),
@@ -54,6 +55,9 @@ class AuthenticatedUser(models.Model):
 	password = models.CharField(max_length=128)  # hashed password
 	created_at = models.DateTimeField(auto_now_add=True)
 	updated_at = models.DateTimeField(auto_now=True)
+	date_joined = models.DateTimeField(default=timezone.now)
+	last_login = models.DateTimeField(blank=True, null=True)
+	is_active = models.BooleanField(default=True)
 
 	def set_password(self, raw_password):
 		self.password = make_password(raw_password)
